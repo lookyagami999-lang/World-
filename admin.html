@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+ <html lang="th">
+ <head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>จัดการเรื่องร้องเรียน — เจ้าหน้าที่</title>
+   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+   <style>
+     * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+     body { background: #f0f4f8; }
+     .header { background: #008891; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+     .header h1 { font-size: 18px; }
+     .back-link { background: white; color: #008891; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 14px; }
+     .container { padding: 16px; }
+     .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+     .card h3 { font-size: 15px; color: #333; margin-bottom: 6px; }
+     .card p { font-size: 14px; color: #555; margin-bottom: 4px; }
+     .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+     .status.pending { background: #fff3cd; color: #856404; }
+     .status.done { background: #d4edda; color: #155724; }
+     select { padding: 6px; border-radius: 4px; border: 1px solid #ccc; margin-top: 8px; }
+     .empty { text-align: center; color: #888; padding: 40px; }
+   </style>
+ </head>
+ <body>
+   <div class="header">
+     <h1>📋 รายการเรื่องร้องเรียน</h1>
+     <a href="index.html" class="back-link">← กลับหน้าแรก</a>
+   </div>
+   <div class="container" id="list">
+     <p class="empty">กำลังโหลดข้อมูล...</p>
+   </div>
+   <script>
+     // ========== ใส่ Firebase Config ของคุณตรงนี้ ==========
+     const firebaseConfig = {
+       apiKey: "AIzaSyC8tQ0HhXZ5qIeKtXzY5wQbXmPvZbXmPvZbXmPvZbXmPv",
+       authDomain: "headlight-complaint.firebaseapp.com",
+       databaseURL: "https://headlight-complaint-default-rtdb.asia-southeast1.firebasedatabase.app/",
+       projectId: "headlight-complaint",
+       storageBucket: "headlight-complaint.appspot.com",
+       messagingSenderId: "123456789012",
+       appId: "1:123456789012:web:abc123def456ghi789jkl01"
+     };
+     // ==========================================================
+     const app = firebase.initializeApp(firebaseConfig);
+     const db = firebase.database();
+     // โหลดข้อมูลทันที ไม่ต้องล็อกอิน
+     loadData();
+     function loadData() {
+       const list = document.getElementById('list');
+       db.ref('complaints').on('value', (snapshot) => {
+         const data = snapshot.val();
+         list.innerHTML = "";
+         if (!data) {
+           list.innerHTML = '<p class="empty">ยังไม่มีเรื่องร้องเรียน</p>';
+           return;
+         }
+         Object.keys(data).forEach(key => {
+           const item = data[key];
+           list.innerHTML += `
+             <div class="card">
+               <h3>${item.type || 'ไม่ระบุประเภท'}</h3>
+               <p><strong>สถานที่:</strong> ${item.location || '-'}</p>
+               <p><strong>รายละเอียด:</strong> ${item.detail || '-'}</p>
+               <p><strong>วันที่:</strong> ${item.date || '-'}</p>
+               <span class="status ${item.status === 'เสร็จสิ้น' ? 'done' : 'pending'}">${item.status || 'รอดำเนินการ'}</span>
+               <br>
+               <select onchange="updateStatus('${key}', this.value)">
+                 <option value="รอดำเนินการ" ${item.status === 'รอดำเนินการ' ? 'selected' : ''}>รอดำเนินการ</option>
+                 <option value="กำลังดำเนินการ" ${item.status === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option>
+                 <option value="เสร็จสิ้น" ${item.status === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option>
+               </select>
+             </div>
+           `;
+         });
+       }, (error) => {
+         list.innerHTML = '<p class="empty">⚠️ รอเชื่อมต่อฐานข้อมูล... ตรวจสอบ Firebase Config</p>';
+       });
+     }
+     function updateStatus(key, status) {
+       db.ref('complaints/' + key).update({ status: status });
+     }
+   </script>
+ </body>
+ </html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+ <html lang="th">
+ <head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>ระบบจัดการงานสาธารณสุข</title>
+   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+   <style>
+     * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+     body { background: #f0f4f8; min-height: 100vh; }
+     .header { background: linear-gradient(135deg, #008891, #00a86b); color: white; padding: 20px; }
+     .header h1 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+     .nav { display: flex; background: white; border-bottom: 1px solid #ddd; }
+     .nav button { padding: 12px 16px; border: none; background: none; font-size: 15px; cursor: pointer; border-bottom: 3px solid transparent; }
+     .nav button.active { border-bottom-color: #008891; color: #008891; font-weight: bold; }
+     .container { padding: 16px; }
+     .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 16px; }
+     .card h2 { font-size: 16px; color: #555; margin-bottom: 12px; }
+     .number { font-size: 36px; font-weight: bold; color: #008891; }
+     .form-group { margin-bottom: 12px; }
+     label { display: block; margin-bottom: 6px; font-size: 14px; color: #444; }
+     input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+     button.btn { background: #008891; color: white; border: none; padding: 12px; border-radius: 6px; width: 100%; font-size: 16px; cursor: pointer; }
+     button.btn:hover { background: #007077; }
+     .page { display: none; }
+     .page.active { display: block; }
+     .admin-link { text-align: right; margin-top: 10px; }
+     .admin-link a { color: #008891; text-decoration: none; font-size: 14px; }
+   </style>
+ </head>
+ <body>
+   <div class="header">
+     <h1>❤️ ระบบจัดการงานสาธารณสุข</h1>
+     <p style="margin-top: 8px; font-size: 14px;">เทศบาลตำบล — แดชบอร์ดข้อมูลและบริการประชาชน</p>
+   </div>
+   <div class="nav">
+     <button class="tab-btn active" data-page="dashboard">📊 ภาพรวม</button>
+     <button class="tab-btn" data-page="complaint">💬 ร้องเรียน</button>
+     <button class="tab-btn" data-page="calendar">📅 กิจกรรม</button>
+   </div>
+   <div class="container">
+     <!-- หน้าภาพรวม -->
+     <div id="dashboard" class="page active">
+       <div class="card">
+         <h2>เรื่องร้องเรียนทั้งหมด</h2>
+         <div class="number" id="totalCount">--</div>
+       </div>
+       <div class="admin-link">
+         <a href="login.html">🔐 เข้าสู่ระบบเจ้าหน้าที่</a>
+       </div>
+     </div>
+     <!-- หน้าร้องเรียน -->
+     <div id="complaint" class="page">
+       <div class="card">
+         <h2>ส่งเรื่องร้องเรียน/แจ้งปัญหา</h2>
+         <div class="form-group">
+           <label>ประเภทปัญหา</label>
+           <select id="compType">
+             <option value="">-- เลือกประเภท --</option>
+             <option value="สุขาภิบาลอาหาร">สุขาภิบาลอาหาร</option>
+             <option value="สิ่งแวดล้อม">สิ่งแวดล้อม</option>
+             <option value="สัตว์เลี้ยง/สุนัขจรจัด">สัตว์เลี้ยง/สุนัขจรจัด</option>
+             <option value="อื่นๆ">อื่นๆ</option>
+           </select>
+         </div>
+         <div class="form-group">
+           <label>สถานที่</label>
+           <input type="text" id="compLocation" placeholder="บ้านเลขที่ หมู่ ถนน...">
+         </div>
+         <div class="form-group">
+           <label>รายละเอียด</label>
+           <textarea id="compDetail" rows="4" placeholder="อธิบายปัญหาโดยละเอียด..."></textarea>
+         </div>
+         <button class="btn" onclick="submitComplaint()">ส่งเรื่องร้องเรียน</button>
+         <p id="msg" style="margin-top:12px;text-align:center;display:none;"></p>
+       </div>
+     </div>
+     <!-- หน้ากิจกรรม -->
+     <div id="calendar" class="page">
+       <div class="card">
+         <h2>ปฏิทินกิจกรรม</h2>
+         <p style="color:#777; text-align:center; padding:20px;">จะแสดงกิจกรรมของหน่วยงานเร็วๆ นี้</p>
+       </div>
+     </div>
+   </div>
+   <script>
+     // ========== 🔑 ใส่ Firebase Config ของคุณตรงนี้ ==========
+     const firebaseConfig = {
+       apiKey: "AIzaSyC8tQ0HhXZ5qIeKtXzY5wQbXmPvZbXmPvZbXmPvZbXmPv",
+       authDomain: "headlight-complaint.firebaseapp.com",
+       databaseURL: "https://headlight-complaint-default-rtdb.asia-southeast1.firebasedatabase.app/",
+       projectId: "headlight-complaint",
+       storageBucket: "headlight-complaint.appspot.com",
+       messagingSenderId: "123456789012",
+       appId: "1:123456789012:web:abc123def456ghi789jkl01"
+     };
+     // ==========================================================
+     // เริ่มต้น Firebase
+     const app = firebase.initializeApp(firebaseConfig);
+     const db = firebase.database();
+     // สลับหน้า
+     document.querySelectorAll('.tab-btn').forEach(btn => {
+       btn.addEventListener('click', () => {
+         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+         btn.classList.add('active');
+         document.getElementById(btn.dataset.page).classList.add('active');
+       });
+     });
+     // อ่านจำนวนเรื่องร้องเรียน
+     db.ref('complaints').on('value', (snapshot) => {
+       const data = snapshot.val();
+       const count = data ? Object.keys(data).length : 0;
+       document.getElementById('totalCount').textContent = count;
+     }, (error) => {
+       console.log("รอเชื่อมต่อฐานข้อมูล...");
+     });
+     // ส่งเรื่องร้องเรียน
+     function submitComplaint() {
+       const type = document.getElementById('compType').value;
+       const location = document.getElementById('compLocation').value;
+       const detail = document.getElementById('compDetail').value;
+       const msg = document.getElementById('msg');
+       if (!type || !location || !detail) {
+         msg.textContent = "⚠️ กรอกข้อมูลให้ครบถ้วน";
+         msg.style.color = "orange";
+         msg.style.display = "block";
+         return;
+       }
+       db.ref('complaints').push({
+         type: type,
+         location: location,
+         detail: detail,
+         date: new Date().toLocaleString('th-TH'),
+         status: "รอดำเนินการ"
+       }).then(() => {
+         msg.textContent = "✅ ส่งเรื่องเรียบร้อยแล้ว ขอบคุณครับ";
+         msg.style.color = "green";
+         msg.style.display = "block";
+         document.getElementById('compType').value = "";
+         document.getElementById('compLocation').value = "";
+         document.getElementById('compDetail').value = "";
+       }).catch((err) => {
+         msg.textContent = "❌ เกิดข้อผิดพลาด: " + err.message;
+         msg.style.color = "red";
+         msg.style.display = "block";
+       });
+     }
+   </script>
+ </body>
+ </html>
